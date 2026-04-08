@@ -44,6 +44,12 @@ app.post('/users', async (req, res) => {
   }
 });
 
+app.get("/api/users", (req, res) => {
+  res.json({
+    message: "Users API working",
+    users: []
+  });
+});
 
 
 app.get('/',(req,res)=>{
