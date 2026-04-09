@@ -1,29 +1,46 @@
 const amqp = require("amqplib");
 
+let connection, channel;
+
+// ✅ Use Railway env variable
+const RABBITMQ_URL = process.env.RABBITMQ_URL;
+
 async function start() {
   try {
-    // connect to RabbitMQ
-    connection = await amqp.connect("amqp://rabbitmq");
+    if (!RABBITMQ_URL) {
+      throw new Error("RABBITMQ_URL not found in environment variables");
+    }
+
+    // ✅ Connect using CloudAMQP URL
+    connection = await amqp.connect(RABBITMQ_URL);
+
     channel = await connection.createChannel();
 
-    // create queue if not exists
-    await channel.assertQueue("task_created");
+    await channel.assertQueue("task_created", {
+      durable: true
+    });
 
-    console.log("Notification Service is listening to messages...");
+    console.log("✅ Notification Service connected to RabbitMQ");
+    console.log("👂 Listening for messages...");
 
-    // consume messages from queue
+    // ✅ Consume messages
     channel.consume("task_created", (msg) => {
+      if (msg !== null) {
+        const taskData = JSON.parse(msg.content.toString());
 
-      const taskData = JSON.parse(msg.content.toString());
+        console.log("📩 NEW TASK RECEIVED:");
+        console.log("Title:", taskData.title);
+        console.log("Full Data:", taskData);
 
-      console.log("Notification: NEW TASK:", taskData.title);
-      console.log("Notification: NEW TASK:", taskData);
-      channel.ack(msg)
-
+        channel.ack(msg);
+      }
     });
 
   } catch (error) {
-    console.error("RabbitMQ Connection Error:", error.message);
+    console.error("❌ RabbitMQ Connection Error:", error.message);
+
+    // 🔁 Retry after delay
+    setTimeout(start, 5000);
   }
 }
 
