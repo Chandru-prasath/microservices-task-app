@@ -71,38 +71,47 @@ app.get('/tasks', async (req, res) => {
 
 // ✅ FIXED POST (NO 502 ERROR)
 app.post('/tasks', async (req, res) => {
-    const { title, description, userId } = req.body;
-
     try {
+        const { title, description, userId } = req.body;
+
         const task = new Task({ title, description, userId });
+
         await task.save();
 
-        // ✅ Send response FIRST (VERY IMPORTANT)
-        res.status(201).json(task);
+        // ✅ respond immediately
+        res.status(201).json({
+            message: "Task created",
+            task
+        });
 
-        // ✅ Then process RabbitMQ asynchronously
-        if (channel) {
-            const message = {
-                taskId: task._id,
-                userId,
-                title
-            };
+        // ✅ async RabbitMQ (after response)
+        setImmediate(() => {
+            try {
+                if (channel) {
+                    const message = {
+                        taskId: task._id,
+                        userId,
+                        title
+                    };
 
-            channel.sendToQueue(
-                "task_created",
-                Buffer.from(JSON.stringify(message)),
-                { persistent: true }
-            );
+                    channel.sendToQueue(
+                        "task_created",
+                        Buffer.from(JSON.stringify(message)),
+                        { persistent: true }
+                    );
 
-            console.log("📤 Message sent to queue");
-        } else {
-            console.log("⚠ RabbitMQ not connected yet");
-        }
+                    console.log("📤 Message sent");
+                } else {
+                    console.log("⚠ RabbitMQ not ready");
+                }
+            } catch (err) {
+                console.log("RabbitMQ send error:", err.message);
+            }
+        });
 
     } catch (error) {
-        console.error("❌ Error saving:", error);
+        console.error("❌ Error:", error);
 
-        // Only send error if response not already sent
         if (!res.headersSent) {
             res.status(500).json({ error: "Internal Server Error" });
         }
