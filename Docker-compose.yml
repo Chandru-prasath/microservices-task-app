@@ -28,7 +28,7 @@ services:
     build: ./task-service
     container_name: task-service
     ports:
-      - "3002:3002"
+      - "8080:8080"
     depends_on:
       - mongo
       - rabbitmq
