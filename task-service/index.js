@@ -5,7 +5,7 @@ const amqp = require('amqplib');
 const app = express();
 app.use(express.json());
 
-const port = process.env.PORT || 3002;
+const port = process.env.PORT || 8080;
 
 // ✅ Environment-based URLs
 const mongoURL = process.env.MONGO_URL || "mongodb://mongo:27017/task";
@@ -119,7 +119,6 @@ app.post('/tasks', async (req, res) => {
 });
 
 // ✅ Start server
-app.listen(port, () => {
-    console.log(`🚀 task-service running on port ${port}`);
-    connectRabbitMQWithRetry();
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 task-service running on port ${PORT}`);
 });
