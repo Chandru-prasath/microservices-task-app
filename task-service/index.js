@@ -7,7 +7,7 @@ app.use(express.json());
 
 const port = process.env.PORT || 3002;
 
-// ✅ Environment-based URLs (IMPORTANT)
+// ✅ Environment-based URLs
 const mongoURL = process.env.MONGO_URL || "mongodb://mongo:27017/task";
 const rabbitURL = process.env.RABBITMQ_URL || "amqp://rabbitmq";
 
@@ -69,7 +69,7 @@ app.get('/tasks', async (req, res) => {
     }
 });
 
-// POST create task
+// ✅ FIXED POST (NO 502 ERROR)
 app.post('/tasks', async (req, res) => {
     const { title, description, userId } = req.body;
 
@@ -77,30 +77,35 @@ app.post('/tasks', async (req, res) => {
         const task = new Task({ title, description, userId });
         await task.save();
 
-        const message = {
-            taskId: task._id,
-            userId,
-            title
-        };
-
-        if (!channel) {
-            return res.status(503).json({ error: "RabbitMQ not connected" });
-        }
-
-        // ✅ Send message to queue
-        channel.sendToQueue(
-            "task_created",
-            Buffer.from(JSON.stringify(message)),
-            { persistent: true }
-        );
-
-        console.log("📤 Message sent to queue");
-
+        // ✅ Send response FIRST (VERY IMPORTANT)
         res.status(201).json(task);
+
+        // ✅ Then process RabbitMQ asynchronously
+        if (channel) {
+            const message = {
+                taskId: task._id,
+                userId,
+                title
+            };
+
+            channel.sendToQueue(
+                "task_created",
+                Buffer.from(JSON.stringify(message)),
+                { persistent: true }
+            );
+
+            console.log("📤 Message sent to queue");
+        } else {
+            console.log("⚠ RabbitMQ not connected yet");
+        }
 
     } catch (error) {
         console.error("❌ Error saving:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+
+        // Only send error if response not already sent
+        if (!res.headersSent) {
+            res.status(500).json({ error: "Internal Server Error" });
+        }
     }
 });
 
