@@ -5,7 +5,8 @@ const amqp = require('amqplib');
 const app = express();
 app.use(express.json());
 
-const port = process.env.PORT || 8080;
+// ✅ PORT (only one)
+const PORT = process.env.PORT || 8080;
 
 // ✅ Environment-based URLs
 const mongoURL = process.env.MONGO_URL || "mongodb://mongo:27017/task";
@@ -69,22 +70,21 @@ app.get('/tasks', async (req, res) => {
     }
 });
 
-// ✅ FIXED POST (NO 502 ERROR)
+// POST create task (NO 502)
 app.post('/tasks', async (req, res) => {
     try {
         const { title, description, userId } = req.body;
 
         const task = new Task({ title, description, userId });
-
         await task.save();
 
-        // ✅ respond immediately
+        // ✅ Send response immediately
         res.status(201).json({
             message: "Task created",
             task
         });
 
-        // ✅ async RabbitMQ (after response)
+        // ✅ Send RabbitMQ message asynchronously
         setImmediate(() => {
             try {
                 if (channel) {
@@ -100,9 +100,9 @@ app.post('/tasks', async (req, res) => {
                         { persistent: true }
                     );
 
-                    console.log("📤 Message sent");
+                    console.log("📤 Message sent to queue");
                 } else {
-                    console.log("⚠ RabbitMQ not ready");
+                    console.log("⚠ RabbitMQ not connected yet");
                 }
             } catch (err) {
                 console.log("RabbitMQ send error:", err.message);
@@ -122,3 +122,6 @@ app.post('/tasks', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 task-service running on port ${PORT}`);
 });
+
+// ✅ Start RabbitMQ connection
+connectRabbitMQWithRetry();
