@@ -12,10 +12,17 @@ const PORT = process.env.PORT || 8080;
 const mongoURL = process.env.MONGO_URL || "mongodb://mongo:27017/task";
 const rabbitURL = process.env.RABBITMQ_URL || "amqp://rabbitmq";
 
-// ✅ MongoDB Connection
-mongoose.connect(mongoURL)
-    .then(() => console.log("✅ Connected to MongoDB"))
-    .catch(err => console.log("❌ MongoDB error:", err));
+// ✅ MongoDB Connection (FIXED)
+async function connectMongo() {
+    try {
+        await mongoose.connect(mongoURL, {
+            serverSelectionTimeoutMS: 5000
+        });
+        console.log("✅ Connected to MongoDB");
+    } catch (err) {
+        console.log("❌ MongoDB error:", err.message);
+    }
+}
 
 // ✅ Schema
 const TaskSchema = new mongoose.Schema({
@@ -59,6 +66,7 @@ app.get('/tasks', async (req, res) => {
         const tasks = await Task.find();
         res.json(tasks);
     } catch (err) {
+        console.error("❌ GET Error:", err);
         res.status(500).json({ error: "Failed to fetch tasks" });
     }
 });
@@ -103,7 +111,7 @@ app.post('/tasks', async (req, res) => {
         });
 
     } catch (err) {
-        console.error("❌ Error:", err);
+        console.error("❌ POST Error:", err);
 
         if (!res.headersSent) {
             res.status(500).json({ error: "Internal Server Error" });
@@ -111,8 +119,10 @@ app.post('/tasks', async (req, res) => {
     }
 });
 
-// ✅ Start server
-app.listen(PORT, '0.0.0.0', () => {
+// ✅ START SERVER (FIXED ORDER)
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🚀 task-service running on port ${PORT}`);
-    connectRabbitMQWithRetry(); // start RabbitMQ
+
+    await connectMongo();               // ✅ wait Mongo
+    await connectRabbitMQWithRetry();  // ✅ connect RabbitMQ
 });
