@@ -1,33 +1,49 @@
-const express = require('express')
-const mongoose = require('mongoose')
-//const bodyParser = require('body-parser')
+const express = require('express');
+const mongoose = require('mongoose');
 
-const app = express()
+const app = express();
 app.use(express.json());
-const port = 3001
 
-//app.use(bodyParser.json())
+// ✅ Railway PORT
+const PORT = process.env.PORT || 3001;
 
-mongoose.connect('mongodb://mongo:27017/user')
-.then(()=> {
-    console.log("Connected to MongoDB")
-})
+// ✅ Use ENV (IMPORTANT)
+const mongoURL = process.env.MONGO_URL;
 
-.catch((err)=>{
-   console.log("MongoDB COnnection error",err)
-})
+// ✅ MongoDB Connection
+async function connectMongo() {
+  try {
+    if (!mongoURL) {
+      throw new Error("MONGO_URL not found");
+    }
 
-const UserSchema = new mongoose .Schema({
-    name : String,
-    email : String
-})
+    await mongoose.connect(mongoURL, {
+      serverSelectionTimeoutMS: 5000
+    });
 
-const User = mongoose.model('User',UserSchema);
+    console.log("✅ Connected to MongoDB");
+  } catch (err) {
+    console.log("❌ MongoDB Connection error:", err.message);
+  }
+}
 
-app.get('/users',async(req,res)=>{
-     const users = await User.find();
-     res.json(users);
-})
+// ✅ Schema
+const UserSchema = new mongoose.Schema({
+  name: String,
+  email: String
+});
+
+const User = mongoose.model('User', UserSchema);
+
+// ✅ Routes
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
 
 app.post('/users', async (req, res) => {
   const { name, email } = req.body;
@@ -37,9 +53,8 @@ app.post('/users', async (req, res) => {
     await user.save();
 
     res.status(201).json(user);
-
   } catch (error) {
-    console.error("Error saving:", error);
+    console.error("❌ Error saving:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
@@ -51,11 +66,12 @@ app.get("/api/users", (req, res) => {
   });
 });
 
+app.get('/', (req, res) => {
+  res.send("hello World");
+});
 
-app.get('/',(req,res)=>{
-    res.send("hello World")
-})
-
-app.listen(port,()=>{
-    console.log(`user-server is running on port ${port}`)
-})
+// ✅ Start server AFTER DB connect
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`🚀 user-service running on port ${PORT}`);
+  await connectMongo();
+});
