@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 
 // ✅ PORT (Railway compatible)
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT;
 
 // ✅ Environment URLs
 const mongoURL = process.env.MONGO_URL || "mongodb://mongo:27017/task";
